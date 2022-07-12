@@ -95,3 +95,16 @@ type ScannedAssetsAuditLog @model
   classification: String
   owner: String
 }
+
+
+type AssetAllocationStores @model
+@key (name: "storeCodeIndex", fields: ["storeCode"])
+@key (name: "storeNameIndex", fields: ["storeName"])
+{
+  id: ID!
+  baseAllocationType: String!
+  storeCode: String!
+  storeName: String!
+  dc: String
+  status: String
+}
