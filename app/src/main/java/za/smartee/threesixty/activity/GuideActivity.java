@@ -102,7 +102,7 @@ public class GuideActivity extends BaseActivity {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        Intent scanStart = new Intent(GuideActivity.this, AssetAllocationsActivity.class);
+                        Intent scanStart = new Intent(GuideActivity.this, AllocationsActivity.class);
                         scanStart.putExtra("appUser",getIntent().getStringExtra("appUser"));
                         startActivity(scanStart);
                         //GuideActivity.this.finish();
