@@ -118,7 +118,7 @@ public class ScanActivity extends BaseActivity{
 
         AppUpdaterUtils appUpdaterUtils = new AppUpdaterUtils(this)
                 .setUpdateFrom(UpdateFrom.JSON)
-                .setUpdateJSON("https://s360rellog.s3.amazonaws.com/update-changelog-temp.json")
+                .setUpdateJSON("https://s360rellog.s3.amazonaws.com/update-changelog-sr.json")
                 .withListener(new AppUpdaterUtils.UpdateListener() {
                     @Override
                     public void onSuccess(Update update, Boolean isUpdateAvailable) {
