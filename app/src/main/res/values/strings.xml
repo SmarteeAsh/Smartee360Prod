@@ -97,11 +97,11 @@
     </string-array>
 
     <string-array name="user_list">
-        <item>Reverse Logistics - Gilbeys</item>
-        <item>Assets - Gilbeys</item>
-        <item>Spar Admin - Gilbeys</item>
+        <item>Reverse Logistics - NR</item>
+        <item>Assets - NR</item>
+        <item>Spar Admin - NR</item>
         <item>Spar Driver</item>
-        <item>Smartee Admin - Gilbeys</item>
+        <item>Smartee Admin - NR</item>
         <item>Other</item>
     </string-array>
     <string name="sparAdminCheck">13579</string>
