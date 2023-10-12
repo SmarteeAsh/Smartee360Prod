@@ -46,12 +46,16 @@ import com.amplifyframework.datastore.generated.model.Locations;
 import com.amplifyframework.datastore.generated.model.ScannedAssetsAuditLog;
 import com.amplifyframework.datastore.generated.model.AssetAllocationStores;
 import com.amplifyframework.rx.RxAmplify;
+import com.budiyev.android.codescanner.CodeScanner;
+import com.budiyev.android.codescanner.CodeScannerView;
+import com.budiyev.android.codescanner.DecodeCallback;
 import com.github.javiersantos.appupdater.AppUpdater;
 import com.github.javiersantos.appupdater.AppUpdaterUtils;
 import com.github.javiersantos.appupdater.enums.AppUpdaterError;
 import com.github.javiersantos.appupdater.enums.Display;
 import com.github.javiersantos.appupdater.enums.UpdateFrom;
 import com.github.javiersantos.appupdater.objects.Update;
+import com.google.zxing.Result;
 
 import java.io.BufferedInputStream;
 import java.io.File;
@@ -82,6 +86,11 @@ public class AllocationsActivity extends AppCompatActivity {
     String assetDevId;
     private ProgressBar spinner;
 
+    private CodeScanner mCodeScanner;
+    String dataInfo;
+    Boolean decodedFlag;
+
+
 
 
     @Override
@@ -91,6 +100,9 @@ public class AllocationsActivity extends AppCompatActivity {
         Button saveButton = (Button) findViewById(R.id.saveBut);
         Button resetButton = (Button) findViewById(R.id.resetButton);
         Button nextButton = (Button) findViewById(R.id.nextButton);
+        Button scannerActivate = (Button) findViewById(R.id.barcodeScanner);
+
+
 
         saveButton.setVisibility(View.INVISIBLE);
         resetButton.setVisibility(View.INVISIBLE);
@@ -103,8 +115,40 @@ public class AllocationsActivity extends AppCompatActivity {
         TextView selectedStore = (TextView) findViewById(R.id.selectedStore);
         EditText assetBarcode = (EditText) findViewById(R.id.assetBarcode);
         TextView sysStatus = (TextView) findViewById(R.id.systemStatus);
-        sysStatus.setText("Status - Ready");
+        sysStatus.setText("Status - Online");
         sysStatus.setBackgroundColor(0xff00ff00);
+
+        decodedFlag = false;
+        CodeScannerView scannerView = findViewById(R.id.scanner_view);
+        scannerActivate.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
+                scannerView.setVisibility(View.VISIBLE);
+            }
+        });
+        mCodeScanner = new CodeScanner(this, scannerView);
+        scannerView.setVisibility(View.INVISIBLE);
+        scannerActivate.setVisibility(View.INVISIBLE);
+        mCodeScanner.setDecodeCallback(new DecodeCallback() {
+            @Override
+            public void onDecoded(@NonNull final Result result) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        assetBarcode.setText(result.getText());
+                        scannerView.setVisibility(View.INVISIBLE);
+//                        Toast.makeText(MainActivity.this, result.getText(), Toast.LENGTH_SHORT).show();
+                    }
+                });
+            }
+        });
+        scannerView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                mCodeScanner.startPreview();
+            }
+        });
 
         spinner = (ProgressBar) findViewById(R.id.progressBar);
         //Make all views invisible until dataset is loaded
@@ -167,6 +211,7 @@ public class AllocationsActivity extends AppCompatActivity {
                         selectedStore.setVisibility(View.VISIBLE);
                         assetBarcode.setVisibility(View.VISIBLE);
                         assetBarcodeHeader.setVisibility(View.VISIBLE);
+                        scannerActivate.setVisibility(View.VISIBLE);
                         storeName = locationDetailInfo.get(i).get("storeName");
                         saveButton.setVisibility(View.VISIBLE);
                         nextButton.setVisibility(View.INVISIBLE);
@@ -176,6 +221,22 @@ public class AllocationsActivity extends AppCompatActivity {
                     Toast.makeText(AllocationsActivity.this,"Could not find store, please retry",Toast.LENGTH_LONG).show();
                     storeCode.setText("");
                 }
+            }
+        });
+
+        scannerActivate.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (!decodedFlag) {
+                    scannerView.setVisibility(View.VISIBLE);
+                    mCodeScanner.startPreview();
+                    decodedFlag = true;
+                } else {
+                    scannerView.setVisibility(View.INVISIBLE);
+                    mCodeScanner.stopPreview();
+                    decodedFlag = false;
+                }
+
             }
         });
 
@@ -376,7 +437,7 @@ public class AllocationsActivity extends AppCompatActivity {
                 @Override
                 public void run() {
                     TextView sysStatus = (TextView) findViewById(R.id.systemStatus);
-                    sysStatus.setText("Status - Ready");
+                    sysStatus.setText("Status - Online");
                     sysStatus.setBackgroundColor(0xff00ff00);
                 }
             });
