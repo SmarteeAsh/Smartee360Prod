@@ -128,10 +128,16 @@ public class AllocationsActivity extends AppCompatActivity {
         });
 
         saveButton.setOnClickListener(new View.OnClickListener() {
+            String assetId;
             @Override
             public void onClick(View v) {
                 Boolean validatedFlag = false;
-                String assetId = assetBarcode.getText().toString();
+                String assetIdTemp = assetBarcode.getText().toString();
+                if (assetIdTemp.startsWith("NR")){
+                    assetId = assetIdTemp.replace("NR", "99999");
+                } else {
+                    assetId = assetIdTemp;
+                }
                 for (int r = 0; r < assetDetailInfo.size(); r++){
                     if (assetDetailInfo.get(r).get("assetName").equals(assetId)){
                         validatedFlag = true;
