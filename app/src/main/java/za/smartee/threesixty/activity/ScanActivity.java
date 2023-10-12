@@ -49,8 +49,11 @@ import com.amplifyframework.datastore.generated.model.Locations;
 import com.amplifyframework.datastore.syncengine.PendingMutation;
 import com.amplifyframework.hub.HubChannel;
 import com.github.javiersantos.appupdater.AppUpdater;
+import com.github.javiersantos.appupdater.AppUpdaterUtils;
+import com.github.javiersantos.appupdater.enums.AppUpdaterError;
 import com.github.javiersantos.appupdater.enums.Display;
 import com.github.javiersantos.appupdater.enums.UpdateFrom;
+import com.github.javiersantos.appupdater.objects.Update;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -114,13 +117,30 @@ public class ScanActivity extends BaseActivity {
 
 
         //Auto Update Check
-        AppUpdater appUpdater = new AppUpdater(this)
-                .setDisplay(Display.DIALOG)
+        AppUpdaterUtils appUpdaterUtils = new AppUpdaterUtils(this)
                 .setUpdateFrom(UpdateFrom.JSON)
-                .setCancelable(false)
-                .setUpdateJSON("https://s360rellog.s3.amazonaws.com/update-changelog-warehouseGilbeys.json");
-        appUpdater.start();
-        Log.i("VCheck","ProdAutoUpdatev6");
+                .setUpdateJSON("https://s360rellog.s3.amazonaws.com/update-changelog-warehouse-nr.json")
+                .withListener(new AppUpdaterUtils.UpdateListener() {
+                    @Override
+                    public void onSuccess(Update update, Boolean isUpdateAvailable) {
+//                        Log.d("Latest Version", update.getLatestVersion());
+//                        Log.d("Latest Version Code", String.valueOf(update.getLatestVersionCode()));
+//                        Log.d("Release notes", update.getReleaseNotes());
+//                        Log.d("URL", String.valueOf(update.getUrlToDownload()));
+//                        Log.d("Is update available?", Boolean.toString(isUpdateAvailable));
+                        if (isUpdateAvailable) {
+                            new DownloadFileFromURL().execute(String.valueOf(update.getUrlToDownload()));
+                        }
+
+                    }
+
+                    @Override
+                    public void onFailed(AppUpdaterError error) {
+                        Log.d("AppUpdater Error", "Something went wrong");
+                    }
+                });
+        appUpdaterUtils.start();
+
 
 
         scanButton = (Button) findViewById(R.id.btnScan);
