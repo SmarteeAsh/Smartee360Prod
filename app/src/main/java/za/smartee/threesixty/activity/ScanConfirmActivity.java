@@ -873,6 +873,7 @@ public class ScanConfirmActivity extends BaseActivity {
         i.putExtra("scanTime",scanTime.toString());
         i.putExtra("assetsInStore",numberExistingAssets.toString());
         i.putExtra("scannedAssets",numberNewAssets.toString());
+        i.putExtra("beaconCounter",beaconCounter.toString());
         i.putExtra("scanHistFlag",true);
         i.putExtra("scanCount",scanCount);
         i.putExtra("appUser",appUser);

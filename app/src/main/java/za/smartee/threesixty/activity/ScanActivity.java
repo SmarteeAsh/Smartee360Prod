@@ -128,6 +128,7 @@ public class ScanActivity extends BaseActivity {
         TextView answer1 = (TextView) findViewById(R.id.scanInfo);
         TextView answer2 = (TextView) findViewById(R.id.scanInfo2);
         TextView answer3 = (TextView) findViewById(R.id.scanInfo3);
+        TextView sysStatus = (TextView) findViewById(R.id.systemStatus);
         infoHeader = (TextView) findViewById(R.id.infoHeader);
         TextView answer4 = (TextView) findViewById(R.id.TextViewSelectedStore);
         doneButton = (Button) findViewById(R.id.DONE);
@@ -155,7 +156,11 @@ public class ScanActivity extends BaseActivity {
                 });
 
 
-
+        //Check System Status
+        if (!isNetworkAvailable()){
+            sysStatus.setText("Ready - Working Offline");
+            sysStatus.setBackgroundColor(0xffff0000);
+        }
         //Confirm Scan Error Handling and display scanned information
         Boolean scanHistFlag = getIntent().getBooleanExtra("scanHistFlag",false);
         if (scanHistFlag){
@@ -163,10 +168,12 @@ public class ScanActivity extends BaseActivity {
             String scanTime = getIntent().getStringExtra("scanTime");
             String numberNewAssets = getIntent().getStringExtra("scannedAssets");
             String numberExistingAssets = getIntent().getStringExtra("assetsInStore");
+            String numberDetectedAssets = getIntent().getStringExtra("beaconCounter");
+
             answer1.setVisibility(View.VISIBLE);
             answer1.setText("Last Scanned Time: " + scanTime);
             answer2.setVisibility(View.VISIBLE);
-            answer2.setText("Number of Assets in Store: " + numberExistingAssets);
+            answer2.setText("Number of Assets in Store: " + numberExistingAssets + " / Detected Now: " + numberDetectedAssets);
             answer3.setVisibility(View.VISIBLE);
             answer3.setText("Number of Scanned Assets:" + numberNewAssets);
             answer4.setVisibility(View.VISIBLE);
@@ -224,6 +231,7 @@ public class ScanActivity extends BaseActivity {
     protected void onResume(){
         super.onResume();
         Switch loadingSwitch = (Switch) findViewById(R.id.switchLoading);
+        TextView sysStatus = (TextView) findViewById(R.id.systemStatus);
 
         Log.i("S360Screen","ScanResume");
 
@@ -314,6 +322,25 @@ public class ScanActivity extends BaseActivity {
                 doneButton.setVisibility(View.INVISIBLE);
                 scanButton.setVisibility(View.VISIBLE);
                 loadingSwitch.setVisibility(View.VISIBLE);
+
+                //Check for Upload Status
+                Amplify.DataStore.query(PendingMutation.PersistentRecord.class,
+                        results -> {
+                            if (!results.hasNext()) {
+                                if (!isNetworkAvailable()){
+                                    sysStatus.setText("Status - Ready");
+                                    sysStatus.setBackgroundColor(0xff00ff00);
+                                }
+                                Log.i("S360Scan","Start Activity Sent - No Pending Mutations");
+                            } else {
+                                sysStatus.setText("Scan Upload in Progress");
+                                sysStatus.setBackgroundColor(0xff0000ff);
+                            }
+                        }, failure -> {
+                            Log.i("S360","Failure");
+                            Log.i("S360Scan","Check failure");
+                        }
+                );
 
             }
         }
@@ -470,6 +497,15 @@ public class ScanActivity extends BaseActivity {
         @Override
         public void onAvailable(@NonNull Network network) {
             super.onAvailable(network);
+
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    TextView sysStatus = (TextView) findViewById(R.id.systemStatus);
+                    sysStatus.setText("Status - Ready");
+                    sysStatus.setBackgroundColor(0xff00ff00);
+                }
+            });
             Amplify.DataStore.start(
                     () -> Log.i("S360", "DataStore started"),
                     error -> Log.e("S360", "Error starting DataStore", error)
@@ -498,6 +534,17 @@ public class ScanActivity extends BaseActivity {
         @Override
         public void onLost(@NonNull Network network) {
             super.onLost(network);
+
+
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    TextView sysStatus = (TextView) findViewById(R.id.systemStatus);
+                    sysStatus.setText("Ready - Working Offline");
+                    sysStatus.setBackgroundColor(0xffff0000);
+                }
+            });
+
         }
 
         @Override
