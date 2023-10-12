@@ -1,19 +1,30 @@
 package za.smartee.threesixty.activity;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.app.ProgressDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.NetworkInfo;
+import android.net.NetworkRequest;
+import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.constraintlayout.widget.ConstraintSet;
+import androidx.core.content.FileProvider;
 
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
@@ -36,9 +47,18 @@ import com.amplifyframework.datastore.generated.model.ScannedAssetsAuditLog;
 import com.amplifyframework.datastore.generated.model.AssetAllocationStores;
 import com.amplifyframework.rx.RxAmplify;
 import com.github.javiersantos.appupdater.AppUpdater;
+import com.github.javiersantos.appupdater.AppUpdaterUtils;
+import com.github.javiersantos.appupdater.enums.AppUpdaterError;
 import com.github.javiersantos.appupdater.enums.Display;
 import com.github.javiersantos.appupdater.enums.UpdateFrom;
+import com.github.javiersantos.appupdater.objects.Update;
 
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.net.URL;
+import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
@@ -82,6 +102,9 @@ public class AllocationsActivity extends AppCompatActivity {
         EditText storeCode = (EditText) findViewById(R.id.storeCode);
         TextView selectedStore = (TextView) findViewById(R.id.selectedStore);
         EditText assetBarcode = (EditText) findViewById(R.id.assetBarcode);
+        TextView sysStatus = (TextView) findViewById(R.id.systemStatus);
+        sysStatus.setText("Status - Ready");
+        sysStatus.setBackgroundColor(0xff00ff00);
 
         spinner = (ProgressBar) findViewById(R.id.progressBar);
         //Make all views invisible until dataset is loaded
@@ -92,14 +115,43 @@ public class AllocationsActivity extends AppCompatActivity {
         storeCodeHeader.setVisibility(View.INVISIBLE);
         storeCode.setVisibility(View.INVISIBLE);
 
+        //Setup a subscription which checks for changes in network connection
+        NetworkRequest networkRequest = new NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+                .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
+                .build();
+
+        ConnectivityManager connectivityManager =
+                (ConnectivityManager) getSystemService(ConnectivityManager.class);
+        connectivityManager.requestNetwork(networkRequest, networkCallback);
+
+
         //Auto Update Check
-        AppUpdater appUpdater = new AppUpdater(this)
-                .setDisplay(Display.DIALOG)
+        AppUpdaterUtils appUpdaterUtils = new AppUpdaterUtils(this)
                 .setUpdateFrom(UpdateFrom.JSON)
-                .setCancelable(false)
-                .setUpdateJSON("https://s360rellog.s3.amazonaws.com/update-changelogAssetAllocations.json");
-        appUpdater.start();
-        Log.i("VCheck","ProdAutoUpdatev6");
+                .setUpdateJSON("https://s360rellog.s3.amazonaws.com/update-changelog-warehouseallocations-nr.json")
+                .withListener(new AppUpdaterUtils.UpdateListener() {
+                    @Override
+                    public void onSuccess(Update update, Boolean isUpdateAvailable) {
+//                        Log.d("Latest Version", update.getLatestVersion());
+//                        Log.d("Latest Version Code", String.valueOf(update.getLatestVersionCode()));
+//                        Log.d("Release notes", update.getReleaseNotes());
+//                        Log.d("URL", String.valueOf(update.getUrlToDownload()));
+//                        Log.d("Is update available?", Boolean.toString(isUpdateAvailable));
+                        if (isUpdateAvailable) {
+                            new DownloadFileFromURL().execute(String.valueOf(update.getUrlToDownload()));
+                        }
+                    }
+
+                    @Override
+                    public void onFailed(AppUpdaterError error) {
+                        Log.d("AppUpdater Error", "Something went wrong");
+                    }
+                });
+        appUpdaterUtils.start();
+
+
         queryAssets();
 
         nextButton.setOnClickListener(new View.OnClickListener() {
@@ -307,4 +359,156 @@ public class AllocationsActivity extends AppCompatActivity {
                             assetDetailInfo.add(assetDetailInfo1);
                         });
     }
+
+    private boolean isNetworkAvailable() {
+        ConnectivityManager connectivityManager
+                = (ConnectivityManager) getSystemService(AuthActivity.CONNECTIVITY_SERVICE);
+        NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
+        return activeNetworkInfo != null && activeNetworkInfo.isConnected();
+    }
+
+    private ConnectivityManager.NetworkCallback networkCallback = new ConnectivityManager.NetworkCallback() {
+        @Override
+        public void onAvailable(@NonNull Network network) {
+            super.onAvailable(network);
+
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    TextView sysStatus = (TextView) findViewById(R.id.systemStatus);
+                    sysStatus.setText("Status - Ready");
+                    sysStatus.setBackgroundColor(0xff00ff00);
+                }
+            });
+
+        }
+
+        @Override
+        public void onLost(@NonNull Network network) {
+            super.onLost(network);
+
+
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    TextView sysStatus = (TextView) findViewById(R.id.systemStatus);
+                    sysStatus.setText("Ready - Working Offline");
+                    sysStatus.setBackgroundColor(0xffff0000);
+                }
+            });
+
+        }
+
+        @Override
+        public void onCapabilitiesChanged(@NonNull Network network, @NonNull NetworkCapabilities networkCapabilities) {
+            super.onCapabilitiesChanged(network, networkCapabilities);
+            final boolean unmetered = networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED);
+        }
+    };
+
+    class DownloadFileFromURL extends AsyncTask<String, String, String> {
+        ProgressDialog pd;
+        String pathFolder = "";
+        String pathFile = "";
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+            pd = new ProgressDialog(AllocationsActivity.this);
+            pd.setTitle("Update Downloading...");
+            pd.setMessage("Please wait.");
+            pd.setMax(100);
+            pd.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+            pd.setCancelable(true);
+            pd.show();
+        }
+
+        @Override
+        protected String doInBackground(String... f_url) {
+            int count;
+
+            try {
+//                pathFolder = Environment.getExternalStorageDirectory() + "/YourAppDataFolder";
+                pathFolder = String.valueOf(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS));
+                pathFile = pathFolder + "/s360auto.apk";
+                File futureStudioIconFile = new File(pathFolder);
+                if (!futureStudioIconFile.exists()) {
+                    futureStudioIconFile.mkdirs();
+                }
+
+                File apkFileName = new File(pathFile);
+                if (apkFileName.exists()){
+                    File file = new File(pathFolder, "s360auto.apk");
+                    boolean deleted = file.delete();
+                }
+
+                URL url = new URL(f_url[0]);
+                URLConnection connection = url.openConnection();
+                connection.connect();
+
+                // this will be useful so that you can show a tipical 0-100%
+                // progress bar
+                int lengthOfFile = connection.getContentLength();
+
+                // download the file
+                InputStream input = new BufferedInputStream(url.openStream());
+                FileOutputStream output = new FileOutputStream(pathFile);
+
+                byte data[] = new byte[1024]; //anybody know what 1024 means ?
+                long total = 0;
+                while ((count = input.read(data)) != -1) {
+                    total += count;
+                    // publishing the progress....
+                    // After this onProgressUpdate will be called
+                    publishProgress("" + (int) ((total * 100) / lengthOfFile));
+
+                    // writing data to file
+                    output.write(data, 0, count);
+                }
+
+                // flushing output
+                output.flush();
+
+                // closing streams
+                output.close();
+                input.close();
+
+
+            } catch (Exception e) {
+                Log.e("Error: ", e.getMessage());
+            }
+
+            return pathFile;
+        }
+
+        protected void onProgressUpdate(String... progress) {
+            // setting progress percentage
+            pd.setProgress(Integer.parseInt(progress[0]));
+        }
+
+        @Override
+        protected void onPostExecute(String file_url) {
+            if (pd != null) {
+                pd.dismiss();
+            }
+            File toInstall = new File(file_url);
+            Intent intent;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                Uri apkUri = FileProvider.getUriForFile(AllocationsActivity.this, "za.smartee.threeSixty", toInstall);
+                intent = new Intent(Intent.ACTION_INSTALL_PACKAGE);
+                intent.setData(apkUri);
+                intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                Log.i("S360","Veriosn N");
+            } else {
+                Uri apkUri = Uri.fromFile(toInstall);
+                intent = new Intent(Intent.ACTION_INSTALL_PACKAGE);
+                intent.setDataAndType(apkUri, "application/vnd.android.package-archive");
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                Log.i("S360","Veriosn < N");
+            }
+            AllocationsActivity.this.startActivity(intent);
+        }
+
+    }
+
 }
