@@ -98,6 +98,7 @@ public class ScanActivity extends BaseActivity {
     Long waitSetTime;
     public Boolean mutationCompleteFlag = false;
     public Boolean processingFlag = false;
+    Boolean uploadingFlag = false;
 
 
 
@@ -169,6 +170,8 @@ public class ScanActivity extends BaseActivity {
         doneButton.setVisibility(View.INVISIBLE);
        // loadingSwitch.setChecked(false);
 
+
+
         //Alert Dialog for no network connection
         AlertDialog.Builder dlgAlert  = new AlertDialog.Builder(this);
         dlgAlert.setMessage("No Network Available, please connect and retry");
@@ -192,6 +195,7 @@ public class ScanActivity extends BaseActivity {
         }
         //Confirm Scan Error Handling and display scanned information
         Boolean scanHistFlag = getIntent().getBooleanExtra("scanHistFlag",false);
+        uploadingFlag = scanHistFlag;
         if (scanHistFlag){
             String text = getIntent().getStringExtra("selectedLocation");
             String scanTime = getIntent().getStringExtra("scanTime");
@@ -261,6 +265,8 @@ public class ScanActivity extends BaseActivity {
         super.onResume();
         Switch loadingSwitch = (Switch) findViewById(R.id.switchLoading);
         TextView sysStatus = (TextView) findViewById(R.id.systemStatus);
+
+        int a = 0; //Variable for checking the mutation counter 10 times
 
         Log.i("S360Screen","ScanResume");
 
@@ -353,23 +359,84 @@ public class ScanActivity extends BaseActivity {
                 loadingSwitch.setVisibility(View.VISIBLE);
 
                 //Check for Upload Status
-                Amplify.DataStore.query(PendingMutation.PersistentRecord.class,
-                        results -> {
-                            if (!results.hasNext()) {
-                                if (!isNetworkAvailable()){
-                                    sysStatus.setText("Status - Ready");
-                                    sysStatus.setBackgroundColor(0xff00ff00);
+
+                    Amplify.DataStore.query(PendingMutation.PersistentRecord.class,
+                            results -> {
+                                if (!results.hasNext()) {
+                                    runOnUiThread(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            sysStatus.setText("Status - Ready");
+                                            sysStatus.setBackgroundColor(0xff00ff00);
+                                            uploadingFlag = false;
+                                            Log.i("S360", "No Pending Mutations");
+                                            Log.i("S360","UploadFlagChecked" + uploadingFlag);
+                                        }
+                                    });
+                                    Log.i("S360Scan","Start Activity Sent - No Pending Mutations");
+                                } else {
+                                    runOnUiThread(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            sysStatus.setText("Scan Upload in Progress");
+                                            sysStatus.setBackgroundColor(0xff0000ff);
+                                            uploadingFlag = true;
+                                            Log.i("S360", "Pending Mutations");
+                                            Log.i("S360","UploadFlagChecked" + uploadingFlag);
+                                        }
+                                    });
                                 }
-                                Log.i("S360Scan","Start Activity Sent - No Pending Mutations");
-                            } else {
-                                sysStatus.setText("Scan Upload in Progress");
-                                sysStatus.setBackgroundColor(0xff0000ff);
+                            }, failure -> {
+                                Log.i("S360","Failure");
+                                Log.i("S360Scan","Check failure");
                             }
-                        }, failure -> {
-                            Log.i("S360","Failure");
-                            Log.i("S360Scan","Check failure");
-                        }
-                );
+                    );
+
+                //Call the check again after 10 minutes 10 times
+
+
+                        scannerSetTime = (new Double(10800000)).longValue();
+                        new CountDownTimer(scannerSetTime, 1200000) {
+                            @RequiresApi(api = Build.VERSION_CODES.N)
+                            public void onTick(long millisUntilFinished) {
+                                Amplify.DataStore.query(PendingMutation.PersistentRecord.class,
+                                        results -> {
+                                            if (!results.hasNext()) {
+                                                runOnUiThread(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        sysStatus.setText("Status - Ready");
+                                                        sysStatus.setBackgroundColor(0xff00ff00);
+                                                        uploadingFlag = false;
+                                                        Log.i("S360", "No Pending Mutations");
+                                                        Log.i("S360","UploadFlagChecked" + uploadingFlag);
+                                                    }
+                                                });
+                                                Log.i("S360Scan","Start Activity Sent - No Pending Mutations");
+                                            } else {
+                                                runOnUiThread(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        sysStatus.setText("Scan Upload in Progress");
+                                                        sysStatus.setBackgroundColor(0xff0000ff);
+                                                        uploadingFlag = true;
+                                                        Log.i("S360", "Pending Mutations");
+                                                        Log.i("S360","UploadFlagChecked" + uploadingFlag);
+                                                    }
+                                                });
+                                            }
+                                        }, failure -> {
+                                            Log.i("S360","Failure");
+                                            Log.i("S360Scan","Check failure");
+                                        }
+                                );
+                            }
+
+                            @RequiresApi(api = Build.VERSION_CODES.O)
+                            public void onFinish() {
+
+                            }
+                        }.start();
 
             }
         }
@@ -515,6 +582,14 @@ public class ScanActivity extends BaseActivity {
         alertDialog.show();
     }
 
+    public boolean checkUploadObservations(){
+        TextView sysStatus = (TextView) findViewById(R.id.systemStatus);
+        Log.i("S360","Inside check observations");
+
+        Log.i("S360","Inside check observations - end");
+        return uploadingFlag;
+    }
+
     private boolean isNetworkAvailable() {
         ConnectivityManager connectivityManager
                 = (ConnectivityManager) getSystemService(AuthActivity.CONNECTIVITY_SERVICE);
@@ -526,13 +601,15 @@ public class ScanActivity extends BaseActivity {
         @Override
         public void onAvailable(@NonNull Network network) {
             super.onAvailable(network);
-
+            Boolean scanHistFlag = getIntent().getBooleanExtra("scanHistFlag",false);
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    TextView sysStatus = (TextView) findViewById(R.id.systemStatus);
-                    sysStatus.setText("Status - Ready");
-                    sysStatus.setBackgroundColor(0xff00ff00);
+                    if (!uploadingFlag) {
+                        TextView sysStatus = (TextView) findViewById(R.id.systemStatus);
+                        sysStatus.setText("Status - Ready");
+                        sysStatus.setBackgroundColor(0xff00ff00);
+                    }
                 }
             });
             Amplify.DataStore.start(
