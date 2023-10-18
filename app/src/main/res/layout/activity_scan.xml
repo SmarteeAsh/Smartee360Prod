@@ -105,6 +105,7 @@
         android:id="@+id/switchLoading"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginTop="273dp"
         android:layout_marginBottom="8dp"
         android:checked="true"
         android:scaleX="2"
@@ -118,6 +119,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.571"
         app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/TextViewSelectedStore"
         tools:checked="true"
         tools:visibility="visible" />
 
