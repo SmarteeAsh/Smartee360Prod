@@ -37,7 +37,10 @@ import java.io.StringWriter;
 import java.io.Writer;
 import java.util.concurrent.TimeUnit;
 
-public class BaseApplication extends Application {
+public class
+
+
+BaseApplication extends Application {
 
     private static final String TAG = "smarteeThreeSixty";
     private static final String LOG_FILE = "smarteeThreeSixty.txt";
